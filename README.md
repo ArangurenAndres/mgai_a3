@@ -1,4 +1,4 @@
-## MGAI project
+# MGAI project
 
 
 ## Setup
@@ -12,7 +12,10 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
+2. If you are a collaborator in this project before doing any modifications create a new branch and checkout :) merci 
 
+
+## Project
 
 The following project is divided in two main taks:
 
