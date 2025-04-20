@@ -1,0 +1,8 @@
+*.png
+*.jpg
+*.DS_Store
+*.log
+*.zip
+*.tar.gz
+*.tar
+*.env
