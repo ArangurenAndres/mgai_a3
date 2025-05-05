@@ -3,13 +3,26 @@
 
 ## Setup
 
-You can run the following bash lines to create a python env, activate it and install its dependencies
+You can set up the Python environment and install dependencies using the following commands:
 
-1. Create python env
-
+1. For Unix/Linux/MacOS:
 ```sh
 chmod +x setup.sh
 ./setup.sh
+```
+
+2. For Windows:
+Either double-click the `setup.bat` file or run it from the command prompt:
+```cmd
+setup.bat
+```
+
+Alternatively, you can run these commands manually:
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
 2. If you are a collaborator in this project before doing any modifications create a new branch and checkout :) merci 
@@ -52,4 +65,3 @@ The data used as input for the GAN and Diffusion model will plain txt which is t
 
 
 ## Agent for autonomous playing both real and generated levels
-

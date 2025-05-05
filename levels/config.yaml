@@ -1,0 +1,6 @@
+data_process:
+  folder_path: "../data/symbol"
+  sliding_window: [14,28] #H,W
+  stride: 1
+
+
