@@ -1,23 +1,13 @@
-symbol:
-  X: Solid/Ground
-  S: Breakable
-  "-": Empty (passable)
-  "?": Full question block
-  Q: Empty question block
-  E: Enemy
-  "<": Top-left pipe
-  ">": Top-right pipe
-  "[": Left pipe
-  "]": Right pipe
+symbol_identity:
+  X: 0
+  S: 1
+  "-": 2
+  "?": 3
+  Q: 4
+  E: 5
+  "<": 6
+  ">": 7
+  "[": 8
+  "]": 9
 
-identity:
-  Solid/Ground: 0
-  Breakable: 1
-  Empty (passable): 2
-  Full question block: 3
-  Empty question block: 4
-  Enemy: 5
-  Top-left pipe: 6
-  Top-right pipe: 7
-  Left pipe: 8
-  Right pipe: 9
+

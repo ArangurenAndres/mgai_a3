@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from load_files import load_config
+from load_files import load_config, load_mapping
 
 
 class ProcessData:
@@ -66,21 +66,22 @@ class ProcessData:
         return patches
 
 class ProcessDataSymbolic:
-    def __init__(self, config_path: str = None, img_name: str = None):
+    def __init__(self, config_path: str = None, mapping_path: str = None):
         self.config = load_config(config_path)
+        self.mapping = load_mapping(mapping_path)
         self.folder_path = self.config["data_process"]["folder_path"]
         self.window_dim = self.config["data_process"]["sliding_window"]  # (tiles_H, tiles_W)
         self.stride = self.config["data_process"].get("stride", 1)       # in pixels
-        self.img_name = img_name
-    
-    def load_symbolic(self):
+
+
+    def load_symbolic(self,img_name: str = None):
         # Presevers the exact format of the txt file including:
         # The number of lines (rows)
         # Number of characters per line (columns)
         
         if not os.path.exists(self.folder_path):
             raise FileNotFoundError(f"File not found: {self.folder_path}")
-        img_path = os.path.join(self.folder_path,self.img_name)
+        img_path = os.path.join(self.folder_path,img_name)
         with open(img_path,'r') as f:
             lines = [line.rstrip('\n') for line in f]
         
@@ -109,14 +110,84 @@ class ProcessDataSymbolic:
         self.patches = patches
 
         return patches
-    def visualize_patches(self, n:int = 10):
-        # Visualize the patches
-        for i, patch in enumerate(self.patches[0:n]):
-            print(f"Patch {i+1}:")
-            for line in patch:
-                print(line)
-            print("\n")
+    # Forward mapping functions
+    def convert_to_identity(self, symb_file = None, visualize: bool = False):
+        if not hasattr(self, 'lines') or symb_file is None:
+            raise ValueError("Symbolic data must be loaded before conversion.")
+        
+        if self.mapping.get("symbol_identity") is None:  # check if mapping file is loaded
+            raise ValueError("Mapping data must be loaded before conversion.")
+        symbol_to_id = self.mapping["symbol_identity"] # Load conversion mapping
+        id_file = [
+        [symbol_to_id.get(char, -1) for char in row]
+        for row in symb_file
+        ] # Using list comprehension covert the symbolic file to identity file
+        return id_file
+    
+    def convert_id_to_vector(self, id_file: list, n_classes: int = 10) -> np.ndarray:
+        id_array = np.array(id_file)
+        h, w = id_array.shape
 
+        # One-hot encode using numpy indexing
+        one_hot = np.zeros((h, w, n_classes), dtype=np.uint8)
+        for class_id in range(n_classes):
+            one_hot[:, :, class_id] = (id_array == class_id)
+
+        return one_hot
+    #--------------------------
+    # Backward mapping functions
+    
+    def convert_vector_to_id(self, vector_file: np.ndarray) -> list:
+        id_file = np.argmax(vector_file, axis=-1) # Convert one-hot encoded vector back to identity
+        return id_file.tolist()
+    
+    def convert_identity_to_symbolic(self, id_file: list) -> list:
+        """
+        Converts a 2D identity grid to symbolic characters using inverse mapping.
+        """
+        # Reverse the mapping: {0: 'X', 1: 'S', ...}
+        id_to_symbol = {v: k for k, v in self.mapping["symbol_identity"].items()}
+        
+        symbolic_file = [
+            ''.join(id_to_symbol.get(cell, '?') for cell in row)
+            for row in id_file
+        ]
+        
+        return symbolic_file
+    # Forward mapping symbolic -> identify -> one-hot vector
+    def forward_mapping(self, symb_file: list) -> list:
+        # 1. Convert symbolic file to identify
+        id_file = self.convert_to_identity(symb_file)
+        # 2. Convert identify file to one-hot vector
+        vector_file = self.convert_id_to_vector(id_file)
+        return id_file,vector_file
+    # Backward mapping one-hot vector -> identify -> symbolic
+    def backward_mapping(self, vector_file: np.ndarray, orig_symb_file=None, orig_id_file=None) -> tuple:
+        # 1. Convert vector to identity
+        id_file = self.convert_vector_to_id(vector_file)
+
+        if id_file != orig_id_file:
+            raise ValueError("Identity file mismatch after decoding from vector. Aborting.")
+
+        print("Identity file matches original.")
+
+        # 2. Convert identity to symbolic
+        symb_file = self.convert_identity_to_symbolic(id_file)
+
+        if orig_symb_file is not None:
+            if symb_file != orig_symb_file:
+                raise ValueError("Symbolic file mismatch after reconstruction. Aborting.")
+
+            print("Symbolic file matches original.")
+
+        return id_file, symb_file
+
+
+    @staticmethod
+    def visualize_file(file=None):
+        for line in file:
+            print(line)
+        print("\n")
     
 
 
@@ -124,11 +195,23 @@ class ProcessDataSymbolic:
 
 if __name__ == "__main__":
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'config.yaml'))
+    mapping_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mapping.yaml'))
     symb_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'symbol'))
+
     symb_file = 'mario_1_1.txt' # File name
-    txt_path = os.path.join(symb_folder, symb_file)
-    processor = ProcessDataSymbolic(config_path=config_path, img_name="mario_1_1.txt") # Intialize processor class
-    symb_file = processor.load_symbolic() #Load the symbolic data
-    patches = processor.crop_symbolic() #Crop the symbolic data
-    processor.visualize_patches(10) # Visualize the first n patches
+
+    processor = ProcessDataSymbolic(config_path=config_path, mapping_path=mapping_path) # Intialize processor class
+    symb_file = processor.load_symbolic(symb_file) #Load the symbolic data
+    patches = processor.crop_symbolic() #Crop the symbolic data obtaining patches
+
+    for id,patch in enumerate(patches[:1]):
+        # Appply forward mapping
+        id_file,vector_file = processor.forward_mapping(patch)
+        print("Original symbolic file:")
+        processor.visualize_file(patch)
+        # Apply bacward mapping
+        id_file_re, symb_file_re = processor.backward_mapping(vector_file, orig_symb_file=patch, orig_id_file=id_file)
+        print("Reconstructed symbolic file:")
+        processor.visualize_file(symb_file_re)
+
 

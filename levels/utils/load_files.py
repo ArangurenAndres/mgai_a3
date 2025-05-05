@@ -10,3 +10,12 @@ def load_config(config_path: str = "config.yaml") -> dict:
         config = yaml.safe_load(file)
 
     return config
+
+def load_mapping(mapping_path:str="mapping.yaml") -> dict:
+    if not os.path.exists(mapping_path):
+        raise FileNotFoundError(f"Mapping file not found: {mapping_path}")
+    
+    with open(mapping_path, "r") as file:
+        mapping = yaml.safe_load(file)
+
+    return mapping
