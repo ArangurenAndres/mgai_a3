@@ -1,6 +1,26 @@
 # MGAI project
 
 
+## Create requirements.txt file 
+
+
+pip install pipreqs
+
+# From the root of your project directory:
+
+
+
+```sh
+pip install pipreqs
+
+pipreqs . --force
+
+
+
+```
+
+
+
 ## Setup
 
 You can set up the Python environment and install dependencies using the following commands:
