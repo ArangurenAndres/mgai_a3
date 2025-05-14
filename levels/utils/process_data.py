@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from load_files import load_config, load_mapping
+from .load_files import load_config, load_mapping
 
 
 class ProcessData:
