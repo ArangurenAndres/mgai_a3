@@ -1,6 +1,20 @@
 data_process:
-  folder_path: "../data/symbol"
-  sliding_window: [14,28] #H,W
+  folder_path: "data/symbol"
+  filename: "mario_1_1.txt"
+  sliding_window: [14, 28]
   stride: 1
 
+model:
+  in_channels: 10
+  base_channels: 64
+  time_emb_dim: 128
+  diffusion_steps: 1000
+  beta_start: 0.0001
+  beta_end: 0.02
 
+train:
+  batch_size: 16
+  learning_rate: 0.0001
+  epochs: 200
+  print_every: 30
+  val_split: 0.1

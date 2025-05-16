@@ -2,13 +2,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from load_files import load_config, load_mapping
+from .load_files import load_config, load_mapping
 
 
 class ProcessData:
     def __init__(self, config_path: str = None, img_name: str = None):
         self.config = load_config(config_path)
         self.folder_path = self.config["data_process"]["folder_path"]
+
+        # Convert to absolute path relative to the config file
+        if not os.path.isabs(self.folder_path):
+            config_dir = os.path.dirname(os.path.abspath(config_path))
+            self.folder_path = os.path.abspath(os.path.join(config_dir, self.folder_path))
+
         self.window_dim = self.config["data_process"]["sliding_window"]  # (tiles_H, tiles_W)
         self.stride = self.config["data_process"].get("stride", 1)       # in pixels
         self.img_name = img_name
@@ -70,6 +76,10 @@ class ProcessDataSymbolic:
         self.config = load_config(config_path)
         self.mapping = load_mapping(mapping_path)
         self.folder_path = self.config["data_process"]["folder_path"]
+        # Convert to absolute path relative to the config file
+        if not os.path.isabs(self.folder_path):
+            config_dir = os.path.dirname(os.path.abspath(config_path))
+            self.folder_path = os.path.abspath(os.path.join(config_dir, self.folder_path))
         self.window_dim = self.config["data_process"]["sliding_window"]  # (tiles_H, tiles_W)
         self.stride = self.config["data_process"].get("stride", 1)       # in pixels
 
@@ -199,12 +209,14 @@ if __name__ == "__main__":
     symb_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'symbol'))
 
     symb_file = 'mario_1_1.txt' # File name
+    n_patches = 5
 
     processor = ProcessDataSymbolic(config_path=config_path, mapping_path=mapping_path) # Intialize processor class
     symb_file = processor.load_symbolic(symb_file) #Load the symbolic data
     patches = processor.crop_symbolic() #Crop the symbolic data obtaining patches
+    print(f"Length of dataset {len(patches)}")
 
-    for id,patch in enumerate(patches[:1]):
+    for id,patch in enumerate(patches[:n_patches]):
         # Appply forward mapping
         id_file,vector_file = processor.forward_mapping(patch)
         print("Original symbolic file:")
