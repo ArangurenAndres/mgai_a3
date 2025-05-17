@@ -16,60 +16,48 @@ from mlp_model import MarioLevelGenerator
 
 
 class MarioLevelDataset(Dataset):
-    """Dataset for Mario levels"""
+    # Dataset for Mario levels
     
     def __init__(self, level_patches):
-        """
-        Args:
-            level_patches (list): List of level patches in one-hot encoded format
-        """
+        # List of level patches in one-hot encoded format
         self.level_patches = [torch.tensor(patch, dtype=torch.float32) for patch in level_patches]
     
     def __len__(self):
-        return len(self.level_patches)
+        return len(self.level_patches) # Returns the number of level patches for one level
     
     def __getitem__(self, idx):
-        return self.level_patches[idx]
+        return self.level_patches[idx] # Returns the level patch at the given index
 
 
 def train_generator(generator, dataloader, num_epochs=100, lr=0.0002, device='cpu'):
-    """
-    Train the generator using binary cross entropy loss
-    
-    Args:
-        generator (MarioLevelGenerator): Generator model
-        dataloader (DataLoader): DataLoader for training data
-        num_epochs (int): Number of training epochs
-        lr (float): Learning rate
-        device (str): Device to train on
-    """
-    generator.to(device)
+    # Train the generator using binary cross entropy loss
+    generator.to(device) # Move generator to specified device
     
     # Define loss and optimizer
-    criterion = nn.BCELoss()
-    optimizer = optim.Adam(generator.parameters(), lr=lr, betas=(0.5, 0.999))
+    criterion = nn.BCELoss() # Binary cross entropy loss
+    optimizer = optim.Adam(generator.parameters(), lr=lr, betas=(0.5, 0.999)) # Adam optimizer
     
     # Training loop
     for epoch in range(num_epochs):
         total_loss = 0
         
         for i, real_levels in enumerate(dataloader):
-            batch_size = real_levels.size(0)
-            real_levels = real_levels.to(device)
+            batch_size = real_levels.size(0) # Get batch size
+            real_levels = real_levels.to(device) # Move real levels to specified device
             
             # Generate random noise
-            z = torch.randn(batch_size, generator.latent_dim, device=device)
+            z = torch.randn(batch_size, generator.latent_dim, device=device) 
             
             # Generate fake levels
             fake_levels = generator(z)
             
             # Train generator to produce levels similar to real ones
-            optimizer.zero_grad()
-            loss = criterion(fake_levels, real_levels)
-            loss.backward()
-            optimizer.step()
+            optimizer.zero_grad() # Zero gradients
+            loss = criterion(fake_levels, real_levels) # Calculate loss
+            loss.backward() # Backpropagate loss
+            optimizer.step() # Update parameters
             
-            total_loss += loss.item()
+            total_loss += loss.item() # Add loss to total loss
         
         # Print training progress
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(dataloader):.4f}")
@@ -83,14 +71,17 @@ if __name__ == "__main__":
     config_path = os.path.abspath(os.path.join(parent_dir, 'levels', 'config.yaml'))
     mapping_path = os.path.abspath(os.path.join(parent_dir, 'levels', 'utils', 'mapping.yaml'))
     
+    # Create the data processor
     processor = ProcessDataSymbolic(config_path=config_path, mapping_path=mapping_path)
     
+    # Get the symbolic data folder and files
     symb_data_folder = processor.folder_path
     symbolic_files = [f for f in os.listdir(symb_data_folder) if f.endswith('.txt')]
     
     if not symbolic_files:
         raise FileNotFoundError(f"No .txt files found in the symbolic data folder: {symb_data_folder}")
     
+    # List to store all the one-hot encoded patches from the files
     all_one_hot_patches = []
     
     print(f"Loading and processing {len(symbolic_files)} symbolic files from {symb_data_folder}")
@@ -106,7 +97,7 @@ if __name__ == "__main__":
 
             # Convert patches to one-hot encoded vectors and collect them
             for patch in patches:
-                id_file, vector_file = processor.forward_mapping(patch)
+                id_file, vector_file = processor.forward_mapping(patch) # Convert patch to one-hot encoded vector
                 all_one_hot_patches.append(vector_file)
         except Exception as e:
             print(f"Error processing {symb_file}: {e}")
@@ -132,7 +123,7 @@ if __name__ == "__main__":
     # Save the trained model
     torch.save(trained_generator.state_dict(), 'mario_generator.pth')
     
-    # Generate a sample level
+    # Generate a sample level patch
     symbolic_level = trained_generator.generate_symbolic_level(processor)
-    print("Generated level after training:")
+    print("Generated level patch after training:")
     processor.visualize_file(symbolic_level)
