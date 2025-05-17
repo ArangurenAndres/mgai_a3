@@ -25,7 +25,7 @@ class MarioLevelGenerator(nn.Module):
         # Calculate output size: height × width × n_tile_types
         output_size = patch_height * patch_width * n_tile_types
         
-        # Define the generator: A simple MLP feed-forward network that transforms the input noise (latent vector z) into level data
+        # A simple MLP feed-forward network that transforms the input noise (latent vector z) into level data
         self.main = nn.Sequential(
             # Input: latent vector z
             nn.Linear(latent_dim, hidden_dim),

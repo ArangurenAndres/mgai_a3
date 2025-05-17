@@ -133,7 +133,7 @@ if __name__ == "__main__":
     torch.save(trained_generator.state_dict(), model_save_path)
     print(f"Trained model saved to {model_save_path}")
     
-    # Plot and save the loss curve
+    # Plot and the loss curve
     plt.figure(figsize=(10,5))
     plt.plot(training_losses, label='Generator Loss')
     plt.xlabel('Epoch')
