@@ -13,17 +13,17 @@ from levels.utils.process_data import ProcessDataSymbolic
 
 
 class MarioLevelGenerator(nn.Module):
-    def __init__(self, level_height, level_width, n_tile_types=10, latent_dim=32, hidden_dim=256):
+    def __init__(self, patch_height, patch_width, n_tile_types=10, latent_dim=32, hidden_dim=256):
         # MLP based Mario Level Generator
         super(MarioLevelGenerator, self).__init__()
         
-        self.level_height = level_height # Level height in tiles
-        self.level_width = level_width   # Level width in tiles
+        self.patch_height = patch_height # Level patch height in tiles
+        self.patch_width = patch_width   # Level patch width in tiles
         self.n_tile_types = n_tile_types # Number of different tile types
         self.latent_dim = latent_dim     # Size of the input noise vector (z)
         
         # Calculate output size: height × width × n_tile_types
-        output_size = level_height * level_width * n_tile_types
+        output_size = patch_height * patch_width * n_tile_types
         
         # Define the generator: A simple MLP feed-forward network that transforms the input noise (latent vector z) into level data
         self.main = nn.Sequential(
@@ -45,48 +45,72 @@ class MarioLevelGenerator(nn.Module):
     def forward(self, z):
         # Forward pass through network and reshape
         output = self.main(z) # Input z 
-        return output.view(-1, self.level_height, self.level_width, self.n_tile_types) # Output a tensor of the generated level with shape (batch_size, height, width, n_tile_types)
+        return output.view(-1, self.patch_height, self.patch_width, self.n_tile_types) # Output a tensor of the generated level with shape (batch_size, height, width, n_tile_types)
     
-    def generate_level(self, batch_size=1, device='cpu'):
+    def generate_patch(self, batch_size=1, device='cpu'):
         # Generate random noise
         z = torch.randn(batch_size, self.latent_dim, device=device)
         
         # Generate level
         with torch.no_grad():
-            level = self(z) # Pass noise through the generator
+            patch = self(z) # Pass noise through the generator
             
         # Convert to numpy for processing with existing code
-        return level.cpu().numpy() # Convert to numpy array
+        return patch.cpu().numpy() # Convert to numpy array
     
-    def generate_symbolic_level(self, processor, batch_size=1, device='cpu'):
+    def generate_symbolic_patch(self, processor, batch_size=1, device='cpu'):
         # Generate level as one-hot encoding
-        vector_level = self.generate_level(batch_size, device)[0]  # Get first level
+        vector_patch = self.generate_patch(batch_size, device)[0]  # Get first level
         
         # Convert to identity representation
-        id_level = processor.convert_vector_to_id(vector_level)
+        id_patch = processor.convert_vector_to_id(vector_patch)
         
         # Convert to symbolic representation
-        symbolic_level = processor.convert_identity_to_symbolic(id_level)
+        symbolic_patch = processor.convert_identity_to_symbolic(id_patch)
         
+        return symbolic_patch
+    
+    def generate_whole_level(self, level_tile_width, processor, device='cpu'):
+        # Generates a whole level by stitching together patches (might have seams between incoherent patches)
+        patch_width = self.patch_width
+        
+        if level_tile_width % patch_width != 0:
+            raise ValueError(f"Desired level width ({level_tile_width}) must be a multiple of patch width ({patch_width})")
+        
+        # Number of patches to generate to stitch into one level
+        num_patches = level_tile_width // patch_width
+        
+        # Generate enough patches to cover the desired width level_tile_width
+        generated_patches = []
+        print(f"Generating {num_patches} patches to stitch into one level...")
+        
+        for i in range(num_patches):
+            # Generate a patch
+            print(f"Generating patch {i+1}/{num_patches}...")
+            patch_vector = self.generate_patch(batch_size=1, device=device)[0] # Get the single patch
+            generated_patches.append(patch_vector)
+            
+        # Stitch the patches horizontally
+        print("Stitching patches...")
+        
+        # Initialize the full level array using the first patch
+        full_level = np.concatenate(generated_patches, axis=1)
+        
+        # # Append each subsequent patch horizontally
+        # for i in range(1, len(generated_patches)):
+        #     for row in range(self.patch_height):
+        #         # For each row, extend it with the corresponding row from the next patch
+        #         full_level[row] = np.concatenate([full_level[row], generated_patches[i][row]], axis=0)
+            
+        # Convert the  whole level vector back to symbolic format
+        print("Converting stitched level to symbolic format...")
+        id_level = processor.convert_vector_to_id(full_level)
+        symbolic_level = processor.convert_identity_to_symbolic(id_level)
+            
+            
+        print("Whole level generation complete.")
         return symbolic_level
 
-if __name__ == "__main__":
-    level_height = 14 
-    level_width = 28   
     
-    # Create model
-    generator = MarioLevelGenerator(level_height, level_width)
     
-    # Generate a random level
-    level_tensor = generator.generate_level()
-    print(f"Generated level shape: {level_tensor.shape}")
     
-    # To convert to symbolic representation
-    config_path = os.path.abspath(os.path.join(parent_dir, 'levels', 'config.yaml'))
-    mapping_path = os.path.abspath(os.path.join(parent_dir, 'levels', 'utils', 'mapping.yaml'))
-    
-    processor = ProcessDataSymbolic(config_path=config_path, mapping_path=mapping_path)
-    symbolic_level = generator.generate_symbolic_level(processor)
-    
-    print("Generated level:")
-    processor.visualize_file(symbolic_level)

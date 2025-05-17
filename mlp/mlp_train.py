@@ -3,8 +3,9 @@ import torch.nn as nn
 import torch.optim as optim
 import os
 import sys
-import numpy as np
 from torch.utils.data import Dataset, DataLoader
+import time
+import matplotlib.pyplot as plt
 
 # Add parent directory to path for imports
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -29,7 +30,7 @@ class MarioLevelDataset(Dataset):
         return self.level_patches[idx] # Returns the level patch at the given index
 
 
-def train_generator(generator, dataloader, num_epochs=100, lr=0.0002, device='cpu'):
+def train_generator(generator, dataloader, num_epochs=10, lr=0.0002, device='cpu'):
     # Train the generator using binary cross entropy loss
     generator.to(device) # Move generator to specified device
     
@@ -37,11 +38,14 @@ def train_generator(generator, dataloader, num_epochs=100, lr=0.0002, device='cp
     criterion = nn.BCELoss() # Binary cross entropy loss
     optimizer = optim.Adam(generator.parameters(), lr=lr, betas=(0.5, 0.999)) # Adam optimizer
     
+    # Keep track of losses per epoch for visualization
+    losses = []
+    
     # Training loop
     for epoch in range(num_epochs):
         total_loss = 0
         
-        for i, real_levels in enumerate(dataloader):
+        for _, real_levels in enumerate(dataloader):
             batch_size = real_levels.size(0) # Get batch size
             real_levels = real_levels.to(device) # Move real levels to specified device
             
@@ -58,12 +62,16 @@ def train_generator(generator, dataloader, num_epochs=100, lr=0.0002, device='cp
             optimizer.step() # Update parameters
             
             total_loss += loss.item() # Add loss to total loss
+            
+        # Calculate avg loss for this epoch
+        avg_loss = total_loss/len(dataloader)
+        losses.append(avg_loss) # Store the loss
         
         # Print training progress
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(dataloader):.4f}")
     
     print("Training completed!")
-    return generator
+    return generator, losses
 
 
 if __name__ == "__main__":
@@ -118,12 +126,49 @@ if __name__ == "__main__":
     
     # Create and train generator
     generator = MarioLevelGenerator(level_height, level_width, n_tile_types)
-    trained_generator = train_generator(generator, dataloader)
+    trained_generator, training_losses = train_generator(generator, dataloader)
     
     # Save the trained model
-    torch.save(trained_generator.state_dict(), 'mario_generator.pth')
+    model_save_path = os.path.join(os.path.dirname(__file__), 'mlp_mario_generator.pth')
+    torch.save(trained_generator.state_dict(), model_save_path)
+    print(f"Trained model saved to {model_save_path}")
     
-    # Generate a sample level patch
-    symbolic_level = trained_generator.generate_symbolic_level(processor)
-    print("Generated level patch after training:")
+    # Plot and save the loss curve
+    plt.figure(figsize=(10,5))
+    plt.plot(training_losses, label='Generator Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training Loss Over Time')
+    plt.legend()
+    plt.grid(True)
+    
+    # Generate a sample level 
+    patch_width = trained_generator.patch_width
+    num_patches = patch_width * 7
+    
+    print(f"Attempting to generate a whole level of width: {num_patches}")
+    symbolic_level = trained_generator.generate_whole_level(num_patches, processor)
+    
+    # Create output directory to store the generated levels
+    output_dir = os.path.join(os.path.dirname(__file__), 'generated_levels')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create the filename along with the timestamp to avoid overwriting existing levels
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    output_file = os.path.join(output_dir, f'mlp_level_{timestamp}.txt')
+    
+    # Also save the plot with the same timestamp
+    plot_path = os.path.join(output_dir, f'training_loss_{timestamp}')
+    plt.savefig(plot_path)
+    print(f"Training loss plot saved to: {plot_path}")
+    plt.close()
+    
+    # Save the generated level to the file
+    print(f"Saving generated level to: {output_file}")
+    with open(output_file, 'w') as f:
+        for row in symbolic_level:
+            f.write(row + '\n')
+        
+    # Display the generated level
+    print("\nGenerated level after training:")
     processor.visualize_file(symbolic_level)
