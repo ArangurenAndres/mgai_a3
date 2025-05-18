@@ -50,6 +50,7 @@ for _ in range(MIN_REPLAY_SIZE):
 # Training loop
 frame_idx = 0
 for episode in range(NUM_EPISODES):
+    highest_reward = -float('inf')
     state = env.reset()
     print("Reset state shape:", state.shape)
     total_reward = 0
@@ -99,5 +100,8 @@ for episode in range(NUM_EPISODES):
             break
 
     print(f"Episode {episode} - Total reward: {total_reward:.2f} - Epsilon: {epsilon:.3f}")
+    if total_reward > highest_reward:
+        highest_reward = total_reward
+        torch.save(policy_net.state_dict(), "dueldqn.pth")
 
 #env.env.render()
