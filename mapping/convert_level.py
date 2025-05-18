@@ -4,7 +4,7 @@ from PIL import Image
 TILE_SIZE = 16
 TILESET_PATH = "NES - Super Mario Bros - Tileset.png"
 ENEMIES_PATH = "NES - Super Mario Bros - Enemies & Bosses.png"
-LEVEL_PATH = "gan_level_20250517-214855.txt"
+LEVEL_PATH = "mapping/mario-1-2.txt"
 OUTPUT_PATH = "level_output.png"
 
 # --- Define mapping: character -> (x, y) of tile in spritesheet ---

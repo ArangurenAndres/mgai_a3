@@ -18,7 +18,7 @@ EPS_START = 1.0
 EPS_END = 0.1
 EPS_DECAY = 10000
 TARGET_UPDATE_FREQ = 1000
-NUM_EPISODES = 500
+NUM_EPISODES = 5000
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -49,13 +49,15 @@ for _ in range(MIN_REPLAY_SIZE):
 
 # Training loop
 frame_idx = 0
+
 for episode in range(NUM_EPISODES):
     highest_reward = -float('inf')
     state = env.reset()
-    print("Reset state shape:", state.shape)
     total_reward = 0
-
+    
+    max_x = 0
     while True:
+        
         epsilon = epsilon_by_frame(frame_idx)
         if random.random() < epsilon:
             action = random.randint(0, n_actions - 1)
@@ -95,9 +97,9 @@ for episode in range(NUM_EPISODES):
         # Sync target network
         if frame_idx % TARGET_UPDATE_FREQ == 0:
             target_net.load_state_dict(policy_net.state_dict())
-
         if done:
             break
+        
 
     print(f"Episode {episode} - Total reward: {total_reward:.2f} - Epsilon: {epsilon:.3f}")
     if total_reward > highest_reward:

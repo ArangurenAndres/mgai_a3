@@ -15,6 +15,7 @@ class TextPlatformerEnv(gym.Env):
         self.start_pos = self._find_start()
         self.agent_pos = list(self.start_pos)
         self.done = False
+        self.cause_of_death = ""
 
         # Actions: 0 = noop, 1 = left, 2 = right, 3 = jump
         self.action_space = spaces.Discrete(4)
@@ -30,28 +31,12 @@ class TextPlatformerEnv(gym.Env):
 
     def _find_start(self):
         # Simple start location: first empty tile above solid ground
-        for y in range(self.height - 2):
-            for x in range(self.width):
-                if self.level[y][x] == "-" and self.level[y + 1][x] == "X":
-                    return (x, y)
-        return (1, 1)
+        # for y in range(self.height - 2):
+        #     for x in range(self.width):
+        #         if self.level[y][x] == "-" and self.level[y + 1][x] == "X":
+        #             return (x, y)
+        return (1, 12)
 
-    # def get_observation(self):
-    #     x, y = self.agent_pos
-    #     half_w = self.obs_width // 2
-    #     half_h = self.obs_height // 2
-
-    #     obs = []
-    #     for dy in range(-half_h, half_h + 1):
-    #         row = []
-    #         for dx in range(-half_w, half_w + 1):
-    #             nx, ny = x + dx, y + dy
-    #             if 0 <= nx < self.width and 0 <= ny < self.height:
-    #                 row.append(ord(self.level[ny][nx]))
-    #             else:
-    #                 row.append(ord(" "))
-    #         obs.append(row)
-    #     return np.array(obs, dtype=np.uint8)
 
     def get_observation(self):
         x, y = self.agent_pos
@@ -97,16 +82,16 @@ class TextPlatformerEnv(gym.Env):
 
         self.agent_pos = [x, y]
 
-                # Enemy collision check
+        # Enemy collision check
         if self._is_enemy(x, y):
-            below_y = y + 1
             if self.vertical_velocity > 0 and self._is_enemy(x, y - 1):  # landed on enemy
                 self.level[y][x] = '-'  # remove enemy
                 self.vertical_velocity = -2  # bounce up
-                self.reward_bonus = 5        # bonus reward
+                self.reward_bonus = 1       # bonus reward
             else:
                 self.done = True
-                self.reward_bonus = -10  # died to enemy
+                self.cause_of_death = "enemy"
+                self.reward_bonus = -11  # died to enemy
         else:
             self.reward_bonus = 0
 
@@ -127,24 +112,37 @@ class TextPlatformerEnv(gym.Env):
         x, y = self.agent_pos
         if y >= self.height:
             self.done = True
+            self.cause_of_death = "fell off"
             return -10  # Fell off
-        elif self.level[y][x] == "G":
+        elif x >= 150 \
+            and x==self.width-1:
             self.done = True
-            return 10  # Goal
+            self.cause_of_death = "reached goal"
+            #print(f"X: {x}, Y: {y}, Starting pos: {self.start_pos}")
+            return 1000  # Goal
         else:
-            return 1 + self.reward_bonus  # Progress + any bonus (enemy or penalty)
+            return self.reward_bonus  # Progress + any bonus (enemy or penalty)
 
 
     def step(self, action):
         if self.done:
             return self.get_observation(), 0, True, {}
+        
+        self.steps+=1
 
         prev_x = self.agent_pos[0]
         self.apply_action(action)
         reward = self.calculate_reward()
 
+        if self.steps > 500:
+            self.done = True
+            self.cause_of_death = "max steps reached"
+            #print(f"Agent position: {self.agent_pos}, Starting pos: {self.start_pos}")
+
         if self.agent_pos[0] > prev_x:
             reward += 1  # Bonus for moving right
+        if self.agent_pos[0] < prev_x:
+            reward -= 1
 
         return self.get_observation(), reward, self.done, {}
 
@@ -154,6 +152,8 @@ class TextPlatformerEnv(gym.Env):
         self.vertical_velocity = 0
         self.done = False
         self.reward_bonus = 0
+        self.steps = 0
+        self.cause_of_death=""
         return self.get_observation()
 
 
