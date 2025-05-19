@@ -106,8 +106,6 @@
 #     if total_reward > highest_reward:
 #         highest_reward = total_reward
 #         torch.save(policy_net.state_dict(), "dueldqn.pth")
-
-# #env.env.render()
 import random
 import numpy as np
 import torch
@@ -122,16 +120,21 @@ from mapping.wrapper import TorchWrapper
 
 # Hyperparameters
 GAMMA = 0.99
-LR = 3e-4  # Increased learning rate
-BATCH_SIZE = 64  # Larger batch size
-BUFFER_SIZE = 100000  # Much larger buffer
-MIN_REPLAY_SIZE = 5000  # More initial experience
+LR = 3e-4
+BATCH_SIZE = 64
+BUFFER_SIZE = 100000
+MIN_REPLAY_SIZE = 5000
 EPS_START = 1.0
-EPS_END = 0.01  # Lower end epsilon
-EPS_DECAY = 100000  # Much slower decay
+EPS_END = 0.01
+EPS_DECAY = 100000
 TARGET_UPDATE_FREQ = 1000
-NUM_EPISODES = 5000  # More episodes
-SAVE_FREQ = 100  # Save frequency
+NUM_EPISODES = 5000
+SAVE_FREQ = 100
+
+# Sprint training parameters
+SPRINT_PROBABILITY_START = 0.1  # Start with low probability of selecting sprint actions
+SPRINT_PROBABILITY_END = 0.5    # Gradually increase to this value
+SPRINT_PROBABILITY_FRAMES = 500000  # Number of frames to linearly increase sprint probability
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -142,7 +145,7 @@ os.makedirs("logs", exist_ok=True)
 # Environment setup
 env = TorchWrapper(TextPlatformerEnv("levels/data/symbol/mario_1_1.txt"))
 obs_shape = (1, 14, 28)
-n_actions = 4
+n_actions = 6  # Updated action space: 0=noop, 1=left, 2=right, 3=jump, 4=sprint left, 5=sprint right
 
 # Networks
 policy_net = DuelingDQN(obs_shape, n_actions).to(device)
@@ -153,14 +156,20 @@ optimizer = optim.Adam(policy_net.parameters(), lr=LR)
 replay_buffer = deque(maxlen=BUFFER_SIZE)
 
 # Load existing model if available
-if os.path.exists("dueldqn.pth"):
-    print("Loading existing model...")
-    policy_net.load_state_dict(torch.load("dueldqn.pth", map_location=device))
-    target_net.load_state_dict(policy_net.state_dict())
+# if os.path.exists("dueldqn.pth"):
+#     print("Loading existing model...")
+#     policy_net.load_state_dict(torch.load("dueldqn.pth", map_location=device))
+#     target_net.load_state_dict(policy_net.state_dict())
 
 # ε-greedy scheduling
 def epsilon_by_frame(frame_idx):
     return EPS_END + (EPS_START - EPS_END) * np.exp(-1. * frame_idx / EPS_DECAY)
+
+# Sprint action probability scheduling - linearly increases from start to end value
+def sprint_probability_by_frame(frame_idx):
+    if frame_idx >= SPRINT_PROBABILITY_FRAMES:
+        return SPRINT_PROBABILITY_END
+    return SPRINT_PROBABILITY_START + (SPRINT_PROBABILITY_END - SPRINT_PROBABILITY_START) * (frame_idx / SPRINT_PROBABILITY_FRAMES)
 
 # Collect initial experience
 print(f"Collecting {MIN_REPLAY_SIZE} initial experiences...")
@@ -192,7 +201,19 @@ for episode in range(NUM_EPISODES):
         
         # Exploration-exploitation
         if random.random() < epsilon:
-            action = random.randint(0, n_actions - 1)
+            # Random action, with increasing probability of sprint actions over time
+            sprint_prob = sprint_probability_by_frame(frame_idx)
+            if random.random() < sprint_prob and random.random() < 0.7:  # 70% chance of converting to sprint
+                # Convert regular movement to sprint when appropriate
+                base_action = random.randint(0, 2)  # noop, left, right
+                if base_action == 1:  # left -> sprint left
+                    action = 4
+                elif base_action == 2:  # right -> sprint right
+                    action = 5
+                else:
+                    action = random.randint(0, n_actions - 1)  # random action including jump
+            else:
+                action = random.randint(0, n_actions - 1)
         else:
             with torch.no_grad():
                 q_values = policy_net(state.unsqueeze(0).to(device))
@@ -276,13 +297,13 @@ for episode in range(NUM_EPISODES):
     
     # Periodic save
     if episode % SAVE_FREQ == 0:
-        #torch.save(policy_net.state_dict(), f"dueldqn_ep{episode}.pth")
+        torch.save(policy_net.state_dict(), f"dueldqn_ep{episode}.pth")
         
         # Save progress log
         with open(f"logs/progress_log_ep{episode}.txt", 'w') as f:
             for entry in progress_log:
                 f.write(f"{entry}\n")
-    
+
 # Final save
 torch.save(policy_net.state_dict(), "final_dueldqn.pth")
 print(f"Training complete. Best reward: {highest_reward:.2f}")

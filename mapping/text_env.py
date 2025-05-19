@@ -165,7 +165,6 @@
 #         print("\n".join("".join(row) for row in display))
 #         print()
 
-
 import gym
 from gym import spaces
 import numpy as np
@@ -187,8 +186,8 @@ class TextPlatformerEnv(gym.Env):
         self.steps = 0
         self.max_x_position = 1  # Track furthest position reached
         
-        # Actions: 0 = noop, 1 = left, 2 = right, 3 = jump
-        self.action_space = spaces.Discrete(4)
+        # Actions: 0 = noop, 1 = left, 2 = right, 3 = jump, 4 = sprint left, 5 = sprint right
+        self.action_space = spaces.Discrete(6)
         self.observation_space = spaces.Box(
             low=0, high=255, shape=(obs_height, obs_width), dtype=np.uint8
         )
@@ -232,11 +231,35 @@ class TextPlatformerEnv(gym.Env):
         if action == 3 and self._is_on_ground(x, y):
             self.vertical_velocity = -3  # Increase jump height slightly
 
+        # Sprint mode uses double movement
+        sprint_mode = False
+        move_distance = 1
+        
+        # Sprint left
+        if action == 4:
+            sprint_mode = True
+            action = 1  # Convert to regular left movement
+            move_distance = 2  # Double movement distance
+            
+        # Sprint right
+        elif action == 5:
+            sprint_mode = True
+            action = 2  # Convert to regular right movement
+            move_distance = 2  # Double movement distance
+
         # Left / Right
-        if action == 1 and self._is_empty(x - 1, y):
-            x -= 1
-        elif action == 2 and self._is_empty(x + 1, y):
-            x += 1
+        if action == 1:  # Left
+            for i in range(move_distance):
+                if self._is_empty(x - 1, y):
+                    x -= 1
+                else:
+                    break
+        elif action == 2:  # Right
+            for i in range(move_distance):
+                if self._is_empty(x + 1, y):
+                    x += 1
+                else:
+                    break
 
         # Gravity
         self.vertical_velocity += self.gravity
@@ -299,6 +322,8 @@ class TextPlatformerEnv(gym.Env):
                 progress_reward += 20  # Checkpoint reward
             if x > 100 and self.max_x_position <= 100:
                 progress_reward += 50  # Bigger checkpoint reward
+            if x > 150 and self.max_x_position <= 150:
+                progress_reward += 100  # Even bigger checkpoint reward
                 
             return progress_reward + self.reward_bonus
 
@@ -318,7 +343,9 @@ class TextPlatformerEnv(gym.Env):
 
         # More nuanced movement rewards
         if self.agent_pos[0] > prev_x:
-            reward += 0.2  # Small consistent bonus for moving right
+            distance_moved = self.agent_pos[0] - prev_x
+            # Give extra reward for sprinting (when distance > 1)
+            reward += 0.2 * distance_moved  # Scale reward with distance moved
         if self.agent_pos[0] < prev_x:
             reward -= 0.5  # Penalty for moving left
             
@@ -347,6 +374,6 @@ class TextPlatformerEnv(gym.Env):
         x, y = self.agent_pos
         # if 0 <= y < self.height and 0 <= x < self.width:
         #     display[y][x] = "M"
-        #print("\n".join("".join(row) for row in display))
+        # print("\n".join("".join(row) for row in display))
         print(f"Position: ({x}, {y}), Max position: {self.max_x_position}, Steps: {self.steps}")
         print()
