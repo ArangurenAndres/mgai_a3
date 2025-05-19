@@ -229,7 +229,7 @@ class TextPlatformerEnv(gym.Env):
 
         # Jump
         if action == 3 and self._is_on_ground(x, y):
-            self.vertical_velocity = -3  # Increase jump height slightly
+            self.vertical_velocity = -4  # Increase jump height slightly
 
         # Sprint mode uses double movement
         sprint_mode = False
