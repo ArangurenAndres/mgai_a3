@@ -1,1 +1,1 @@
-{'episode': 0, 'reward': 53.300000000000175, 'avg_reward': np.float64(53.300000000000175), 'epsilon': np.float64(0.9950623544007555), 'max_position': 28, 'steps': 501}
+{'episode': 0, 'reward': 21.499999999999876, 'avg_reward': np.float64(21.499999999999876), 'epsilon': np.float64(0.9950623544007555), 'max_position': 18, 'steps': 501}
